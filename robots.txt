@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /_next/
+
+Sitemap: https://anti-ai-table-tennis-3d.vercel.app/sitemap.xml
