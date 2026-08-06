@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#05080f">
+  <title>Настольный теннис 3D — Арена</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#05080f; --panel:#0b1322; --line:#1e2e4d;
+      --orange:#ff9f1c; --red:#ff4d5e; --cyan:#3ad2e6;
+      --text:#eaf1ff; --dim:#8ba0c6;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{
+      height:100%;
+      min-height:100vh;
+      min-height:-webkit-fill-available;
+      overflow:hidden;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Rubik,system-ui,-apple-system,sans-serif;
+      touch-action:none;
+      overscroll-behavior:none;
+      -webkit-overflow-scrolling:touch;
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+    canvas#scene{
+      position:fixed;
+      inset:0;
+      z-index:0;
+      display:block;
+      width:100%;
+      height:100%;
+    }
+    #vignette{position:fixed;inset:0;z-index:2;pointer-events:none;
+      background:radial-gradient(ellipse at 50% 42%,transparent 52%,rgba(2,5,12,.62) 100%)}
+    #topfade{position:fixed;left:0;right:0;top:0;height:130px;z-index:2;pointer-events:none;
+      background:linear-gradient(#02040acc,transparent)}
+
+    #hud{position:fixed;inset:0;z-index:5;pointer-events:none;transition:opacity .4s}
+    body.mode-menu #hud{opacity:0}
+
+    #msg{position:absolute;top:34%;left:50%;transform:translateX(-50%);text-align:center;opacity:0;width:100%}
+    #msg.show{animation:msgpop 1.5s ease forwards}
+    #msg h2{font-family:'Russo One';font-size:clamp(30px,6vw,58px);letter-spacing:.03em;text-shadow:0 4px 30px #000c}
+    #msg.w h2{color:var(--orange)} #msg.l h2{color:#7f93b8}
+    #msg p{margin-top:6px;font-size:13px;letter-spacing:.28em;text-transform:uppercase;color:var(--dim)}
+    @keyframes msgpop{0%{opacity:0;transform:translateX(-50%) scale(.55)}
+     12%{opacity:1;transform:translateX(-50%) scale(1.06)}20%{transform:translateX(-50%) scale(1)}
+     78%{opacity:1}100%{opacity:0;transform:translateX(-50%) scale(1) translateY(-14px)}}
+
+    .chip{position:absolute;bottom:14px;background:#0a1220d9;border:1px solid var(--line);
+      padding:7px 14px;font-size:12px;letter-spacing:.08em;color:var(--dim);
+      clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+      backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+    .chip b{color:var(--text)}
+    #rallyChip{left:16px} #speedChip{right:16px}
+    #hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+      font-size:11px;letter-spacing:.14em;color:#5c6f93;text-transform:uppercase;white-space:nowrap}
+    #hint kbd{background:#141f36;border:1px solid var(--line);border-bottom-width:2px;
+      padding:2px 7px;border-radius:4px;color:var(--dim);font-family:inherit;font-size:10px}
+    @media(max-width:820px){#hint{display:none}}
+
+    button{font-family:'Russo One';cursor:pointer;border:none;color:var(--text);-webkit-tap-highlight-color:transparent}
+    .btn{background:linear-gradient(180deg,#ffb23e,#ff8c0a);color:#221200;font-size:20px;
+      letter-spacing:.06em;padding:16px 46px;clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);
+      transition:transform .15s, box-shadow .15s, filter .15s;
+      touch-action:manipulation}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 10px 34px #ff9f1c55;filter:brightness(1.07)}
+    .btn:active{transform:translateY(1px)}
+    .btn.ghost{background:#111c31;border:1px solid var(--line);color:var(--dim);font-size:14px;padding:13px 30px}
+    .btn.ghost:hover{color:var(--text);box-shadow:0 6px 20px #0007}
+    .iconbtn{position:fixed;top:14px;z-index:12;background:#0a1220d9;border:1px solid var(--line);
+      color:var(--dim);width:42px;height:42px;font-size:16px;
+      clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);transition:.15s;
+      backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+      touch-action:manipulation}
+    .iconbtn:hover{color:var(--orange)}
+    #muteBtn{right:14px} #pauseBtn{right:64px}
+
+    .overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;
+      background:radial-gradient(ellipse at 60% 40%,#02040920,#020409d9 78%);
+      opacity:0;pointer-events:none;transition:opacity .35s;
+      padding:var(--safe-top) 0 var(--safe-bottom) 0}
+    .overlay.open{opacity:1;pointer-events:auto}
+
+    .panel{background:linear-gradient(160deg,#0e182bee,#080e1aee);border:1px solid var(--line);
+      clip-path:polygon(26px 0,100% 0,100% calc(100% - 26px),calc(100% - 26px) 100%,0 100%,0 26px);
+      padding:42px 46px;max-width:560px;width:min(560px,92vw);margin-left:6vw;
+      box-shadow:0 30px 80px #000c; max-height: 94vh; overflow-y: auto; 
+      -webkit-overflow-scrolling: touch; -ms-overflow-style: none; scrollbar-width: none;}
+    .panel::-webkit-scrollbar { display: none; }
+    @media(max-width:760px){.panel{margin:0 auto;padding:30px 26px}}
+
+    .panel-logo-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: -10px auto 32px auto;
+      width: 100%;
+    }
+    .panel-logo {
+      width: 104px;
+      height: 104px;
+      border-radius: 22px;
+      object-fit: contain;
+      background: radial-gradient(circle at 50% 40%, rgba(255, 159, 28, 0.18), transparent 70%);
+      padding: 10px;
+      border: 2px solid var(--line);
+      box-shadow: 
+        0 0 0 4px rgba(255, 159, 28, 0.08),
+        0 10px 40px rgba(255, 159, 28, 0.3),
+        inset 0 0 20px rgba(255, 159, 28, 0.05);
+      transition: transform 0.4s ease;
+    }
+    .panel-logo:hover {
+      transform: scale(1.05) rotate(-2deg);
+    }
+    @media(max-width: 760px) {
+      .panel-logo {
+        width: 80px;
+        height: 80px;
+        border-radius: 18px;
+        padding: 8px;
+      }
+      .panel-logo-wrap {
+        margin: -6px auto 24px auto;
+      }
+    }
+
+    .support-section {
+      margin-top: 36px;
+      border-top: 1px solid var(--line);
+      padding-top: 28px;
+      text-align: center;
+    }
+    .support-title {
+      font-family: 'Russo One', sans-serif;
+      font-size: 24px;
+      color: var(--orange);
+      margin-bottom: 14px;
+      letter-spacing: 0.02em;
+    }
+    .support-text {
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+    .support-text.dim {
+      color: var(--dim);
+      font-size: 14px;
+      max-width: 420px;
+      margin: 0 auto 24px auto;
+      line-height: 1.6;
+    }
+    .support-card {
+      background: #070c16;
+      border: 1px solid var(--line);
+      padding: 24px 20px;
+      border-radius: 8px;
+      margin: 0 auto 24px auto;
+      display: inline-block;
+      width: 100%;
+      max-width: 400px;
+    }
+    .support-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--dim);
+      margin-bottom: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .phone-number {
+      font-size: 28px;
+      font-family: 'Russo One', sans-serif;
+      color: var(--cyan);
+      margin-bottom: 16px;
+      letter-spacing: 0.03em;
+      user-select: all;
+      -webkit-user-select: all;
+    }
+    .copy-btn {
+      font-size: 14px !important;
+      padding: 10px 26px !important;
+      margin-bottom: 14px !important;
+      transition: all 0.2s ease;
+    }
+    .copy-btn.copied {
+      background: #1a3b2a !important;
+      border-color: #2d6a4f !important;
+      color: #52b788 !important;
+    }
+    .support-note {
+      font-size: 12.5px;
+      color: var(--dim);
+      line-height: 1.6;
+    }
+    .support-thanks {
+      font-size: 20px;
+      color: var(--red);
+      margin-top: 12px;
+      margin-bottom: 8px;
+      font-family: 'Russo One', sans-serif;
+      letter-spacing: 0.02em;
+    }
+    .support-footer {
+      margin-top: 26px;
+      padding-top: 20px;
+      border-top: 1px dashed var(--line);
+    }
+    .support-link {
+      font-size: 15px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .support-link a {
+      color: var(--orange);
+      text-decoration: none;
+      font-weight: 700;
+      border-bottom: 1px dashed var(--orange);
+      transition: 0.2s;
+    }
+    .support-link a:hover {
+      color: var(--text);
+      border-bottom-color: var(--text);
+    }
+    @media(max-width: 760px) {
+      .support-title { font-size: 20px; }
+      .phone-number { font-size: 22px; }
+    }
+
+    .kicker{font-size:11px;letter-spacing:.4em;color:var(--orange);font-weight:700;margin-bottom:12px}
+    .panel h1{font-family:'Russo One';font-size:clamp(34px,5.4vw,54px);line-height:.98}
+    .panel h1 .d3{display:inline-block;background:var(--orange);color:#221200;padding:2px 14px 0;
+      transform:rotate(-3deg) translateY(-4px);margin-left:8px;font-size:.72em}
+    .lead{margin:16px 0 24px;color:var(--dim);font-size:15px;line-height:1.55;max-width:42ch}
+    .lbl{font-size:11px;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin:18px 0 10px}
+    .pills{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{background:#101b31;border:1px solid var(--line);color:var(--dim);padding:9px 20px;
+      font-size:13px;letter-spacing:.06em;transition:.15s;
+      clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);
+      touch-action:manipulation}
+    .pill:hover{color:var(--text)}
+    .pill.sel{background:var(--orange);border-color:var(--orange);color:#221200;font-weight:700}
+    .ctrls{display:flex;gap:10px 26px;flex-wrap:wrap;margin:20px 0 26px;font-size:12.5px;color:var(--dim)}
+    .ctrls span{display:flex;align-items:center;gap:8px}
+    .ctrls kbd{background:#141f36;border:1px solid var(--line);border-bottom-width:2px;
+      padding:3px 9px;border-radius:4px;color:var(--text);font-family:inherit;font-size:11px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .ball-ico{width:16px;height:16px;border-radius:50%;display:inline-block;margin-right:10px;
+      background:radial-gradient(circle at 34% 30%,#ffd9a0,#ff9f1c 60%,#d96f00);
+      animation:bob 1.4s ease-in-out infinite;vertical-align:middle}
+    @keyframes bob{50%{transform:translateY(-7px)}}
+    #endScore{font-family:'Russo One';font-size:60px;margin:14px 0 24px}
+    #endScore b{color:var(--red)} #endScore i{font-style:normal;color:#3c4f74;padding:0 10px}
+    #endScore em{font-style:normal;color:var(--cyan)}
+    .center{text-align:center;margin:0 auto}
+
+    #fatal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
+      background:#05080f;text-align:center;padding:20px}
+    #fatal .box{max-width:520px;border:1px solid var(--line);background:var(--panel);padding:34px;
+      clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px)}
+    #fatal h2{font-family:'Russo One';color:var(--orange);margin-bottom:14px}
+    #fatal p{color:var(--dim);line-height:1.6;font-size:14px;word-break:break-word}
+
+    #touchControls {
+      position: fixed;
+      bottom: calc(30px + var(--safe-bottom));
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      pointer-events: none;
+      touch-action: none;
+      flex-wrap: wrap;
+      padding: 0 10px;
+    }
+    #touchControls button {
+      pointer-events: auto;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(10, 18, 32, 0.85);
+      border: 2px solid var(--line);
+      color: var(--text);
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      transition: 0.1s;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+    }
+    #touchControls button:active {
+      background: rgba(255, 159, 28, 0.4);
+      transform: scale(0.88);
+    }
+    #touchControls .arrow-up { border-color: var(--orange); }
+    #touchControls .arrow-down { border-color: var(--cyan); }
+    #touchControls .arrow-left { border-color: #b07cff; }
+    #touchControls .arrow-right { border-color: #ff7c9e; }
+    @media (pointer: fine) {
+      #touchControls { display: none; }
+    }
+    @media (max-width: 600px) {
+      #touchControls button { width: 56px; height: 56px; font-size: 22px; }
+      #touchControls { gap: 12px; }
+    }
+    @media (max-width: 400px) {
+      #touchControls button { width: 48px; height: 48px; font-size: 18px; }
+      #touchControls { gap: 8px; }
+    }
+
+    #perfIndicator {
+      position: fixed;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      color: #3c4f74;
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body class="mode-menu">
+
+<canvas id="scene"></canvas>
+<div id="vignette"></div><div id="topfade"></div>
+
+<button id="muteBtn" class="iconbtn" title="Звук (M)" aria-label="Звук">♫</button>
+<button id="pauseBtn" class="iconbtn" title="Пауза (P)" aria-label="Пауза">⏸</button>
+
+<div id="hud">
+  <div id="msg"><h2></h2><p></p></div>
+  <div id="rallyChip" class="chip">розыгрыш: <b id="rallyN">0</b> ударов</div>
+  <div id="speedChip" class="chip">мяч <b id="speedN">—</b> км/ч</div>
+  <div id="hint"><kbd>СТРЕЛКИ / МЫШЬ</kbd> ракетка &nbsp;·&nbsp; <kbd>ПРОБЕЛ</kbd> подача</div>
+</div>
+
+<div id="touchControls" role="group" aria-label="Сенсорное управление">
+  <button class="arrow-up" data-dir="up" aria-label="Вверх">▲</button>
+  <button class="arrow-down" data-dir="down" aria-label="Вниз">▼</button>
+  <button class="arrow-left" data-dir="left" aria-label="Влево">◀</button>
+  <button class="arrow-right" data-dir="right" aria-label="Вправо">▶</button>
+</div>
+
+<div id="perfIndicator"></div>
+
+<div id="startOv" class="overlay open">
+  <div class="panel">
+    <div class="panel-logo-wrap">
+      <img src="favicon.ico" alt="Логотип" class="panel-logo" onerror="this.style.display='none'">
+    </div>
+    <div class="kicker">HTML5 · WEBGL · ТУРНИРНАЯ АРЕНА</div>
+    <h1><span class="ball-ico"></span>НАСТОЛЬНЫЙ<br>ТЕННИС <span class="d3">3D</span></h1>
+    <p class="lead">Первый до 11 очков с разницей в два. Двигайте ракетку стрелками или мышью,
+      принимайте мяч у края стола и возвращайте его кручёными ударами.
+      Удар по высокому мячу — смэш!</p>
+    <div class="lbl">Сложность</div>
+    <div class="pills">
+      <button class="pill" data-d="easy">Легко</button>
+      <button class="pill sel" data-d="norm">Нормально</button>
+      <button class="pill" data-d="hard">Сложно</button>
+    </div>
+    <div class="ctrls">
+      <span><kbd>СТРЕЛКИ / МЫШЬ</kbd> движение ракетки</span>
+      <span><kbd>КЛИК / ПРОБЕЛ</kbd> подача</span>
+      <span><kbd>P</kbd> пауза</span><span><kbd>M</kbd> звук</span>
+    </div>
+    <div class="row"><button id="startBtn" class="btn">ИГРАТЬ</button></div>
+    
+    <div class="support-section">
+      <h2 class="support-title">🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</h2>
+      <p class="support-text">Приложение бесплатное. Было и останется.</p>
+      <p class="support-text dim">Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.</p>
+      
+      <div class="support-card">
+        <p class="support-label">📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:</p>
+        <p id="phone-number" class="phone-number">8-920-227-56-76</p>
+        <button id="copy-phone-btn" class="btn ghost copy-btn">📋 Копировать номер</button>
+        <p class="support-note">✅ Деньги придут мгновенно.<br>Без комиссии. Безопасно.</p>
+      </div>
+
+      <p class="support-thanks">❤️ Спасибо за поддержку!</p>
+      
+      <div class="support-footer">
+        <p class="support-link">🌟 👉 <a href="https://ancf-hue.github.io/" target="_blank" rel="noopener noreferrer">https://ancf-hue.github.io/</a></p>
+        <p class="support-note">Каталог бесплатных офлайн-приложений Anti-AI Shield.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pauseOv" class="overlay">
+  <div class="panel center">
+    <div class="panel-logo-wrap">
+      <img src="favicon.ico" alt="Логотип" class="panel-logo" onerror="this.style.display='none'">
+    </div>
+    <h1>ПАУЗА</h1>
+    <p class="lead" style="margin:14px auto 26px">Мяч ждёт вас на столе.</p>
+    <button id="resumeBtn" class="btn">ПРОДОЛЖИТЬ</button>
+  </div>
+</div>
+
+<div id="endOv" class="overlay">
+  <div class="panel center">
+    <div class="panel-logo-wrap">
+      <img src="favicon.ico" alt="Логотип" class="panel-logo" onerror="this.style.display='none'">
+    </div>
+    <div class="kicker" id="endKick">ИТОГ МАТЧА</div>
+    <h1 id="endTitle">ПОБЕДА</h1>
+    <div id="endScore"><b>11</b><i>:</i><em>7</em></div>
+    <div class="row" style="justify-content:center">
+      <button id="againBtn" class="btn">ЕЩЁ РАЗ</button>
+      <button id="menuBtn" class="btn ghost">В МЕНЮ</button>
+    </div>
+  </div>
+</div>
+
+<div id="fatal"><div class="box"><h2>ИГРА НЕ ЗАПУСТИЛАСЬ</h2><p id="fatalText"></p></div></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+const $ = id => document.getElementById(id);
+
+try {
+
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const cores = navigator.hardwareConcurrency || 4;
+const memGB = navigator.deviceMemory || 4;
+const isLowEnd = (isMobile && cores <= 4) || memGB < 4;
+
+if (isLowEnd) {
+  const perfInd = $('perfIndicator');
+  if (perfInd) perfInd.textContent = '⚡ РЕЖИМ ЭНЕРГОСБЕРЕЖЕНИЯ';
+}
+
+const HL = 1.37, HW = 0.7625, TH = 0.76, NET_TOP = 0.92;
+const BALL_R = 0.045, G = -9.5, REST = 0.87;
+const PZ = 1.58, AZ = -1.58;
+const P_HIT = 0.25, A_HIT = 0.22;
+const DIFFS = {
+  easy: { speed: 2.1, err: 0.24, whiff: 0.10, tShot: 0.88, aggr: 0.15, aim: 0.28 },
+  norm: { speed: 3.1, err: 0.13, whiff: 0.04, tShot: 0.72, aggr: 0.40, aim: 0.42 },
+  hard: { speed: 4.6, err: 0.05, whiff: 0.00, tShot: 0.60, aggr: 0.70, aim: 0.56 }
+};
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rnd = (a = 1, b) => b === undefined ? Math.random() * a : a + Math.random() * (b - a);
+
+class SoundManager {
+  constructor() {
+    this.ctx = null;
+    this.gain = null;
+    this.muted = false;
+    this.volume = 0.5;
+    this.initialized = false;
+    this.soundBuffers = {};
+    this.noiseBuffer = null;
+    this.crowdSource = null;
+    this.crowdGain = null;
+    this.use3DSound = !isLowEnd;
+    this.activeSources = new Set();
+    this.MAX_CONCURRENT = isLowEnd ? 12 : 24;
+    this.baseCrowdLevel = 0.02;
+    this._resumeHandler = null;
+  }
+
+  init() {
+    if (this.initialized) return Promise.resolve();
+    return new Promise((resolve) => {
+      try {
+        const C = window.AudioContext || window.webkitAudioContext;
+        if (!C) { console.warn('Web Audio не поддерживается'); resolve(); return; }
+        
+        this.ctx = new C();
+        this.gain = this.ctx.createGain();
+        this.gain.gain.value = this.volume;
+        this.gain.connect(this.ctx.destination);
+        
+        this._resumeHandler = () => {
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+        };
+        document.addEventListener('click', this._resumeHandler);
+        document.addEventListener('touchstart', this._resumeHandler, { passive: true });
+        
+        const len = Math.floor(this.ctx.sampleRate * 1.5);
+        const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.8;
+        this.noiseBuffer = buffer;
+        
+        this.preloadSounds();
+        this.updateListenerOrientation(0, -0.3, -1, 0, 1, 0);
+        this.initialized = true;
+        resolve();
+      } catch (e) {
+        console.warn('Sound init failed:', e);
+        resolve();
+      }
+    });
+  }
+
+  preloadSounds() {
+    const sounds = {
+      hit: this.createHitSound.bind(this),
+      bounce: this.createBounceSound.bind(this),
+      net: this.createNetSound.bind(this),
+      win: this.createWinSound.bind(this),
+      lose: this.createLoseSound.bind(this),
+      toss: this.createTossSound.bind(this),
+      smash: this.createSmashSound.bind(this),
+      serve: this.createServeSound.bind(this)
+    };
+    for (const [name, fn] of Object.entries(sounds)) {
+      try {
+        const buffer = fn();
+        if (buffer) this.soundBuffers[name] = buffer;
+      } catch (e) { /* игнорируем */ }
+    }
+  }
+
+  ensure() {
+    if (!this.initialized) this.init();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
+  createHitSound() {
+    const duration = 0.08, sr = this.ctx.sampleRate;
+    const buffer = this.ctx.createBuffer(1, Math.floor(sr * duration), sr);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      const env = Math.exp(-t * 30);
+      data[i] = (Math.sin(t * 800) * 0.6 + Math.sin(t * 1200) * 0.3) * env;
+    }
+    return buffer;
+  }
+  createBounceSound() {
+    const duration = 0.12, sr = this.ctx.sampleRate;
+    const buffer = this.ctx.createBuffer(1, Math.floor(sr * duration), sr);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      const env = Math.exp(-t * 25);
+      data[i] = (Math.sin(t * 300) * 0.4 + Math.sin(t * 500) * 0.2) * env;
+    }
+    return buffer;
+  }
+  createNetSound() {
+    const duration = 0.15, sr = this.ctx.sampleRate;
+    const buffer = this.ctx.createBuffer(1, Math.floor(sr * duration), sr);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      const env = Math.exp(-t * 20);
+      data[i] = (Math.sin(t * 600) * 0.3 + Math.sin(t * 900) * 0.2) * env;
+    }
+    return buffer;
+  }
+  createWinSound() {
+    const duration = 0.6, sr = this.ctx.sampleRate;
+    const buffer = this.ctx.createBuffer(1, Math.floor(sr * duration), sr);
+    const data = buffer.getChannelData(0);
+    const notes = [523, 659, 784];
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      let value = 0;
+      for (let j = 0; j < notes.length; j++) {
+        const start = j * 0.2;
+        if (t >= start && t < start + 0.3) {
+          const env = Math.exp(-(t - start) * 10);
+          value += Math.sin(t * notes[j] * 2 * Math.PI) * 0.3 * env;
+        }
+      }
+      data[i] = value;
+    }
+    return buffer;
+  }
+  createLoseSound() {
+    const duration = 0.4, sr = this.ctx.sampleRate;
+    const buffer = this.ctx.createBuffer(1, Math.floor(sr * duration), sr);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      const env = Math.exp(-t * 15);
+      data[i] = Math.sin(t * 200) * 0.4 * env + Math.sin(t * 300) * 0.3 * env;
+    }
+    return buffer;
+  }
+  createTossSound() {
+    const duration = 0.05, sr = this.ctx.sampleRate;
+    const buffer = this.ctx.createBuffer(1, Math.floor(sr * duration), sr);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      data[i] = Math.sin(t * 1500) * 0.15 * (1 - t / duration);
+    }
+    return buffer;
+  }
+  createSmashSound() {
+    const duration = 0.15, sr = this.ctx.sampleRate;
+    const buffer = this.ctx.createBuffer(1, Math.floor(sr * duration), sr);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      const env = Math.exp(-t * 35);
+      data[i] = (Math.sin(t * 1000) * 0.7 + Math.sin(t * 1500) * 0.3) * env;
+    }
+    return buffer;
+  }
+  createServeSound() {
+    const duration = 0.06, sr = this.ctx.sampleRate;
+    const buffer = this.ctx.createBuffer(1, Math.floor(sr * duration), sr);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / sr;
+      const env = Math.exp(-t * 20);
+      data[i] = (Math.sin(t * 700) * 0.3 + Math.sin(t * 1000) * 0.2) * env;
+    }
+    return buffer;
+  }
+
+  playSound(buffer, volume = 1, position = null) {
+    if (!this.ctx || this.muted || !buffer) return null;
+    if (this.activeSources.size >= this.MAX_CONCURRENT) {
+      const oldest = this.activeSources.values().next().value;
+      if (oldest) { try { oldest.stop(); } catch(e) {} this.activeSources.delete(oldest); }
+    }
+    try {
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+      const gainNode = this.ctx.createGain();
+      gainNode.gain.value = volume * this.volume;
+      let lastNode = source;
+      
+      if (this.use3DSound && position && this.ctx.createPanner) {
+        try {
+          const panner = this.ctx.createPanner();
+          panner.panningModel = 'HRTF';
+          panner.distanceModel = 'inverse';
+          panner.maxDistance = 20;
+          panner.refDistance = 1;
+          panner.rolloffFactor = 0.8;
+          if (position.x !== undefined && panner.positionX) panner.positionX.value = position.x;
+          if (position.y !== undefined && panner.positionY) panner.positionY.value = position.y;
+          if (position.z !== undefined && panner.positionZ) panner.positionZ.value = position.z;
+          source.connect(panner);
+          panner.connect(gainNode);
+          lastNode = panner;
+        } catch (e) { source.connect(gainNode); }
+      } else {
+        source.connect(gainNode);
+      }
+      
+      gainNode.connect(this.gain);
+      source.onended = () => {
+        this.activeSources.delete(source);
+        try { source.disconnect(); gainNode.disconnect(); if (lastNode !== source) lastNode.disconnect(); } catch(e) {}
+      };
+      this.activeSources.add(source);
+      source.start();
+      return source;
+    } catch (e) { return null; }
+  }
+
+  hit(velocity = 1, position = null) {
+    const buffer = this.soundBuffers.hit || this.createHitSound();
+    return this.playSound(buffer, Math.min(0.5, 0.15 + velocity * 0.05), position);
+  }
+  bounce(velocity = 1, position = null) {
+    const buffer = this.soundBuffers.bounce || this.createBounceSound();
+    return this.playSound(buffer, Math.min(0.4, 0.1 + velocity * 0.03), position);
+  }
+  net(position = null) { return this.playSound(this.soundBuffers.net || this.createNetSound(), 0.3, position); }
+  win(position = null) { return this.playSound(this.soundBuffers.win || this.createWinSound(), 0.5, position); }
+  lose(position = null) { return this.playSound(this.soundBuffers.lose || this.createLoseSound(), 0.4, position); }
+  toss(position = null) { return this.playSound(this.soundBuffers.toss || this.createTossSound(), 0.2, position); }
+  smash(position = null) { return this.playSound(this.soundBuffers.smash || this.createSmashSound(), 0.6, position); }
+  serve(position = null) { return this.playSound(this.soundBuffers.serve || this.createServeSound(), 0.2, position); }
+
+  crowdAmbient(active = true) {
+    if (isLowEnd || !this.ctx || this.muted) return;
+    if (active && !this.crowdSource) {
+      try {
+        if (!this.noiseBuffer) return;
+        this.crowdSource = this.ctx.createBufferSource();
+        this.crowdSource.buffer = this.noiseBuffer;
+        this.crowdSource.loop = true;
+        this.crowdGain = this.ctx.createGain();
+        this.crowdGain.gain.value = this.baseCrowdLevel * this.volume;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+        filter.Q.value = 0.5;
+        this.crowdSource.connect(filter);
+        filter.connect(this.crowdGain);
+        this.crowdGain.connect(this.gain);
+        this.crowdSource.start();
+      } catch (e) { this.crowdSource = null; this.crowdGain = null; }
+    } else if (!active && this.crowdSource) {
+      try { this.crowdSource.stop(); } catch(e) {}
+      this.crowdSource = null;
+      this.crowdGain = null;
+    }
+  }
+
+  setCrowdIntensity(intensity) {
+    if (isLowEnd || !this.crowdGain || !this.ctx) return;
+    const target = Math.min(0.12, this.baseCrowdLevel + intensity * 0.025) * this.volume;
+    try {
+      if (this.crowdGain.gain.setTargetAtTime) {
+        this.crowdGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.4);
+      } else {
+        this.crowdGain.gain.value = target;
+      }
+    } catch(e) {}
+  }
+
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.muted) {
+      this.activeSources.forEach(src => { try { src.stop(); } catch(e) {} });
+      this.activeSources.clear();
+      if (this.crowdSource) { try { this.crowdSource.stop(); } catch(e) {} this.crowdSource = null; this.crowdGain = null; }
+    }
+    return this.muted;
+  }
+
+  setVolume(vol) {
+    this.volume = Math.max(0, Math.min(1, vol));
+    if (this.gain) this.gain.gain.value = this.volume;
+  }
+
+  updateListenerPosition(x, y, z) {
+    if (!this.ctx || !this.ctx.listener) return;
+    try {
+      const L = this.ctx.listener;
+      if (x !== undefined && L.positionX) L.positionX.value = x;
+      else if (x !== undefined && L.setPosition) L.setPosition(x, y, z);
+      if (y !== undefined && L.positionY) L.positionY.value = y;
+      if (z !== undefined && L.positionZ) L.positionZ.value = z;
+    } catch(e) {}
+  }
+
+  updateListenerOrientation(fx, fy, fz, ux, uy, uz) {
+    if (!this.ctx || !this.ctx.listener) return;
+    try {
+      const L = this.ctx.listener;
+      if (L.forwardX !== undefined) {
+        L.forwardX.value = fx; L.forwardY.value = fy; L.forwardZ.value = fz;
+        L.upX.value = ux; L.upY.value = uy; L.upZ.value = uz;
+      } else if (L.setOrientation) {
+        L.setOrientation(fx, fy, fz, ux, uy, uz);
+      }
+    } catch(e) {}
+  }
+
+  cleanup() {
+    this.activeSources.forEach(src => { try { src.stop(); } catch(e) {} });
+    this.activeSources.clear();
+    if (this._resumeHandler) {
+      document.removeEventListener('click', this._resumeHandler);
+      document.removeEventListener('touchstart', this._resumeHandler);
+    }
+  }
+}
+
+const sound = new SoundManager();
+await sound.init();
+
+let MODE = 'attract';
+let state = 'serve';
+let server = 'P', lastHitter = null, crossedNet = false, bounces = 0;
+let scoreP = 0, scoreA = 0, rally = 0, paused = false;
+let pointTimer = 0, serveTimer = 1, slowT = 0, lastHitTime = -9;
+let diff = DIFFS.norm;
+let shake = 0, fovKick = 0, boardPulse = 0, matchTime = 0;
+let pVX = 0, aVX = 0, aErrSeed = 0, aErrSeedT = -1;
+let crowdPts = [];
+
+const canvas = $('scene');
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: !isLowEnd,
+  powerPreference: isLowEnd ? 'low-power' : 'high-performance'
+});
+if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
+else renderer.outputEncoding = THREE.sRGBEncoding;
+
+const pixelRatio = isLowEnd ? Math.min(window.devicePixelRatio || 1, 1) : Math.min(window.devicePixelRatio || 1, 2);
+renderer.setPixelRatio(pixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+if (!isLowEnd) {
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+}
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.6;
+
+const sceneObj = new THREE.Scene();
+sceneObj.background = new THREE.Color(0x05080f);
+sceneObj.fog = null;
+
+const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 60);
+camera.position.set(0, 2.05, 5.0);
+
+sceneObj.add(new THREE.HemisphereLight(0x6699dd, 0x334466, 1.2));
+
+const keyLight = new THREE.DirectionalLight(0xffeecc, 2.2);
+keyLight.position.set(2, 6, 4);
+if (!isLowEnd) {
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.bias = -0.0003;
+}
+sceneObj.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0xaaccff, 0.9);
+fillLight.position.set(0, 2, 5);
+sceneObj.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xff9944, 0.7);
+rimLight.position.set(-1, 1.5, -5);
+sceneObj.add(rimLight);
+
+const leftFill = new THREE.DirectionalLight(0x4488ff, 0.5);
+leftFill.position.set(-4, 2, 2);
+sceneObj.add(leftFill);
+
+const rightFill = new THREE.DirectionalLight(0xff6644, 0.5);
+rightFill.position.set(4, 2, -2);
+sceneObj.add(rightFill);
+
+const overhead = new THREE.PointLight(0xffffff, 0.6, 5);
+overhead.position.set(0, 2.8, 0);
+sceneObj.add(overhead);
+
+const underLight = new THREE.PointLight(0x4488ff, 0.3, 3);
+underLight.position.set(0, 0.3, 0);
+sceneObj.add(underLight);
+
+function cnv(w, h, fn) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  fn(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+  else t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+
+const floorTex = cnv(512, 512, (x, w, h) => {
+  x.fillStyle = '#0b1626';
+  x.fillRect(0, 0, w, h);
+  const count = isLowEnd ? 120 : 250;
+  for (let i = 0; i < count; i++) {
+    x.fillStyle = `rgba(255,255,255,${rnd(0.015, 0.04)})`;
+    x.fillRect(rnd(w), rnd(h), 1.2, 1.2);
+  }
+  x.strokeStyle = '#1e2e4d';
+  x.lineWidth = 2;
+  x.strokeRect(60, 60, w - 120, h - 120);
+});
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.6),
+  new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.92, metalness: 0.05 }));
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -0.01;
+if (!isLowEnd) floor.receiveShadow = true;
+sceneObj.add(floor);
+
+const tableTex = cnv(1024, 572, (x, w, h) => {
+  const g = x.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, '#1660c4');
+  g.addColorStop(1, '#0f4ea4');
+  x.fillStyle = g;
+  x.fillRect(0, 0, w, h);
+  const count = isLowEnd ? 1300 : 2600;
+  for (let i = 0; i < count; i++) {
+    x.fillStyle = `rgba(255,255,255,${rnd(0.01, 0.03)})`;
+    x.fillRect(rnd(w), rnd(h), 1, 1);
+  }
+  x.strokeStyle = '#f4f8ff';
+  x.lineWidth = 16;
+  x.strokeRect(8, 8, w - 16, h - 16);
+  x.lineWidth = 5;
+  x.beginPath();
+  x.moveTo(w / 2, 0);
+  x.lineTo(w / 2, h);
+  x.stroke();
+});
+const tableSide = new THREE.MeshStandardMaterial({ color: 0x0a2a55, roughness: 0.6 });
+const tableTop = new THREE.Mesh(new THREE.BoxGeometry(HW * 2, 0.05, HL * 2),
+  [tableSide, tableSide,
+   new THREE.MeshStandardMaterial({ map: tableTex, roughness: 0.42, metalness: 0.05 }),
+   tableSide, tableSide, tableSide]);
+tableTop.position.y = TH - 0.025;
+if (!isLowEnd) { tableTop.receiveShadow = true; tableTop.castShadow = true; }
+sceneObj.add(tableTop);
+
+const apron = new THREE.Mesh(new THREE.BoxGeometry(HW * 2 - 0.12, 0.09, HL * 2 - 0.12),
+  new THREE.MeshStandardMaterial({ color: 0x081d3d, roughness: 0.7 }));
+apron.position.y = TH - 0.095;
+sceneObj.add(apron);
+
+const legMat = new THREE.MeshStandardMaterial({ color: 0x18243a, roughness: 0.4, metalness: 0.5 });
+[[-1.1, -0.55], [1.1, -0.55], [-1.1, 0.55], [1.1, 0.55]].forEach(([lx, lz]) => {
+  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.66, 0.08), legMat);
+  leg.position.set(lx, 0.33, lz);
+  if (!isLowEnd) leg.castShadow = true;
+  sceneObj.add(leg);
+});
+
+const netTex = cnv(256, 48, (x, w, h) => {
+  x.clearRect(0, 0, w, h);
+  x.strokeStyle = 'rgba(240,246,255,.85)';
+  x.lineWidth = 1.2;
+  for (let i = 0; i <= w; i += 7) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); }
+  for (let j = 0; j <= h; j += 7) { x.beginPath(); x.moveTo(0, j); x.lineTo(w, j); x.stroke(); }
+});
+const net = new THREE.Mesh(new THREE.PlaneGeometry(HW * 2 + 0.3, 0.16),
+  new THREE.MeshBasicMaterial({ map: netTex, transparent: true, side: THREE.DoubleSide }));
+net.position.set(0, TH + 0.08, 0);
+sceneObj.add(net);
+const tape = new THREE.Mesh(new THREE.BoxGeometry(HW * 2 + 0.3, 0.014, 0.01),
+  new THREE.MeshBasicMaterial({ color: 0xf4f8ff }));
+tape.position.set(0, NET_TOP - 0.005, 0);
+sceneObj.add(tape);
+[[-1], [1]].forEach(([s]) => {
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.2, 10), legMat);
+  post.position.set(s * (HW + 0.15), TH + 0.1, 0);
+  if (!isLowEnd) post.castShadow = true;
+  sceneObj.add(post);
+});
+
+function makePaddle(rubber, edgeGlow) {
+  const g = new THREE.Group();
+  const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.024, 26),
+    [new THREE.MeshStandardMaterial({ color: 0xc9a06a, roughness: 0.6 }),
+     new THREE.MeshStandardMaterial({ color: rubber, roughness: 0.55, emissive: edgeGlow || 0x000000, emissiveIntensity: 0.35 }),
+     new THREE.MeshStandardMaterial({ color: rubber, roughness: 0.55, emissive: edgeGlow || 0x000000, emissiveIntensity: 0.35 })]);
+  blade.rotation.x = Math.PI / 2;
+  if (!isLowEnd) blade.castShadow = true;
+  g.add(blade);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.17, 0.03),
+    new THREE.MeshStandardMaterial({ color: 0xd9b98c, roughness: 0.7 }));
+  handle.position.y = -0.235;
+  if (!isLowEnd) handle.castShadow = true;
+  g.add(handle);
+  return g;
+}
+const pPad = makePaddle(0xd7263d, 0x2a0508);
+pPad.position.set(0, 1.0, PZ);
+sceneObj.add(pPad);
+const aPad = makePaddle(0x12161c, 0x0a2a33);
+aPad.position.set(0, 1.0, AZ);
+sceneObj.add(aPad);
+
+const ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, isLowEnd ? 12 : 20, isLowEnd ? 10 : 16),
+  new THREE.MeshStandardMaterial({ color: 0xffa028, emissive: 0xff7a00, emissiveIntensity: 0.55, roughness: 0.35 }));
+if (!isLowEnd) ball.castShadow = true;
+sceneObj.add(ball);
+const ballLight = new THREE.PointLight(0xffa040, isLowEnd ? 2 : 5, 2.4, 2);
+ball.add(ballLight);
+
+const TRAIL_N = isLowEnd ? 16 : 26;
+const trailPos = new Float32Array(TRAIL_N * 3);
+const trailCol = new Float32Array(TRAIL_N * 3);
+for (let i = 0; i < TRAIL_N; i++) {
+  const f = i / (TRAIL_N - 1);
+  trailCol[i * 3] = 0.15 + f;
+  trailCol[i * 3 + 1] = 0.05 + f * 0.55;
+  trailCol[i * 3 + 2] = f * 0.15;
+  trailPos[i * 3] = 0;
+  trailPos[i * 3 + 1] = -5;
+  trailPos[i * 3 + 2] = 0;
+}
+const trailGeo = new THREE.BufferGeometry();
+trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+trailGeo.setAttribute('color', new THREE.BufferAttribute(trailCol, 3));
+const trail = new THREE.Line(trailGeo,
+  new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9,
+    blending: THREE.AdditiveBlending, depthWrite: false }));
+sceneObj.add(trail);
+
+const P_N = isLowEnd ? 80 : 160;
+const pp = new Float32Array(P_N * 3);
+const pc = new Float32Array(P_N * 3);
+const pv = new Float32Array(P_N * 3);
+const pl = new Float32Array(P_N);
+for (let i = 0; i < P_N; i++) pp[i * 3 + 1] = -50;
+const partGeo = new THREE.BufferGeometry();
+partGeo.setAttribute('position', new THREE.BufferAttribute(pp, 3));
+partGeo.setAttribute('color', new THREE.BufferAttribute(pc, 3));
+const parts = new THREE.Points(partGeo, new THREE.PointsMaterial({
+  size: isLowEnd ? 0.04 : 0.055,
+  vertexColors: true,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false
+}));
+sceneObj.add(parts);
+let pIdx = 0;
+function burst(x, y, z, hex, n, pw) {
+  if (isLowEnd) n = Math.floor(n / 2);
+  const c = new THREE.Color(hex);
+  for (let i = 0; i < n; i++) {
+    pIdx = (pIdx + 1) % P_N;
+    const j = pIdx * 3;
+    pp[j] = x;
+    pp[j + 1] = y;
+    pp[j + 2] = z;
+    pv[j] = rnd(-1, 1) * pw;
+    pv[j + 1] = rnd(0.2, 1.4) * pw;
+    pv[j + 2] = rnd(-1, 1) * pw;
+    pc[j] = c.r;
+    pc[j + 1] = c.g;
+    pc[j + 2] = c.b;
+    pl[pIdx] = rnd(0.3, 0.6);
+  }
+}
+
+(function() {
+  const pts = [];
+  const palette = ['#ffd8b1','#f4a261','#e76f51','#4cc9f0','#90e0ef',
+    '#f1faee','#e63946','#457b9d','#ffb703','#9b5de5'];
+  const cc = [];
+  for (const s of [-1, 1]) {
+    for (let c = 0; c < 3; c++) {
+      for (let z = -2.0; z < 2.0; z += 0.4) {
+        if (Math.random() < 0.85) pts.push(s * (2.0 + c * 0.5) + rnd(-0.08, 0.08), 0.55 + c * 0.5 + rnd(-0.05, 0.05), z + rnd(-0.08, 0.08));
+      }
+    }
+  }
+  for (let c = 0; c < 3; c++) {
+    for (let x = -3.2; x < 3.2; x += 0.4) {
+      if (Math.random() < 0.85) pts.push(x + rnd(-0.08, 0.08), 0.6 + c * 0.5 + rnd(-0.05, 0.05), -3.8 - c * 0.5 + rnd(-0.08, 0.08));
+    }
+  }
+  if (isLowEnd) pts.length = Math.min(pts.length, 900);
+  for (let i = 0; i < pts.length / 3; i++) {
+    const c = new THREE.Color(palette[(Math.random() * palette.length) | 0]).multiplyScalar(0.8);
+    cc.push(c.r, c.g, c.b);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cc, 3));
+  sceneObj.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 0.13, vertexColors: true, transparent: true, opacity: 0.9 })));
+  crowdPts = pts;
+})();
+
+let flashNext = 2;
+const flashSpr = new THREE.Sprite(new THREE.SpriteMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0,
+  blending: THREE.AdditiveBlending
+}));
+flashSpr.scale.set(0.5, 0.5, 1);
+sceneObj.add(flashSpr);
+
+[[-3.8, 0x1f8fff], [3.8, 0xff8c1a]].forEach(([x, c]) => {
+  const s = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 7), new THREE.MeshBasicMaterial({ color: c }));
+  s.position.set(x, 2.3, -0.3);
+  sceneObj.add(s);
+});
+const backStrip = new THREE.Mesh(new THREE.BoxGeometry(7, 0.06, 0.06),
+  new THREE.MeshBasicMaterial({ color: 0xff8c1a }));
+backStrip.position.set(0, 2.3, -3.6);
+sceneObj.add(backStrip);
+
+const boardC = document.createElement('canvas');
+boardC.width = 512;
+boardC.height = 256;
+const bxx = boardC.getContext('2d');
+const boardTex = new THREE.CanvasTexture(boardC);
+if (THREE.SRGBColorSpace) boardTex.colorSpace = THREE.SRGBColorSpace;
+else boardTex.encoding = THREE.sRGBEncoding;
+const boardGroup = new THREE.Group();
+const boardBack = new THREE.Mesh(new THREE.BoxGeometry(3.7, 2.0, 0.12),
+  new THREE.MeshStandardMaterial({ color: 0x060a12, roughness: 0.5 }));
+const boardFace = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7),
+  new THREE.MeshBasicMaterial({ map: boardTex }));
+boardFace.position.z = 0.065;
+boardGroup.add(boardBack, boardFace);
+boardGroup.position.set(0, 3.15, -3.6);
+boardGroup.rotation.x = -0.05;
+sceneObj.add(boardGroup);
+
+function drawBoard() {
+  bxx.fillStyle = '#070c16';
+  bxx.fillRect(0, 0, 512, 256);
+  bxx.strokeStyle = '#ff9f1c';
+  bxx.lineWidth = 3;
+  bxx.strokeRect(6, 6, 500, 244);
+  bxx.strokeStyle = '#1e2e4d';
+  bxx.lineWidth = 1;
+  bxx.strokeRect(14, 14, 484, 228);
+  bxx.textAlign = 'center';
+  bxx.font = '26px "Russo One", sans-serif';
+  bxx.fillStyle = '#ff4d5e';
+  bxx.fillText('ВЫ', 128, 64);
+  bxx.fillStyle = '#3ad2e6';
+  bxx.fillText('ИИ', 384, 64);
+  bxx.font = '110px "Russo One", sans-serif';
+  bxx.fillStyle = '#ffe9ec';
+  bxx.fillText(scoreP, 128, 182);
+  bxx.fillStyle = '#e2fbff';
+  bxx.fillText(scoreA, 384, 182);
+  bxx.fillStyle = '#3c4f74';
+  bxx.font = '52px "Russo One", sans-serif';
+  bxx.fillText(':', 256, 172);
+  bxx.fillStyle = '#ff9f1c';
+  bxx.beginPath();
+  const sx = server === 'P' ? 128 : 384;
+  bxx.moveTo(sx - 11, 214);
+  bxx.lineTo(sx + 11, 214);
+  bxx.lineTo(sx, 228);
+  bxx.fill();
+  bxx.fillStyle = '#5c6f93';
+  bxx.font = '13px Rubik, sans-serif';
+  bxx.fillText('ПЕРВЫМИ ДО 11 · РАЗНИЦА 2', 256, 244);
+  boardTex.needsUpdate = true;
+}
+drawBoard();
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => setTimeout(drawBoard, 100));
+}
+
+const bpos = ball.position;
+const bvel = new THREE.Vector3();
+
+function predictAtPlane(px, py, pz, vx, vy, vz, planeZ) {
+  let x = px, y = py, z = pz, dx = vx, dy = vy, dz = vz;
+  const dt = 1 / 120;
+  for (let i = 0; i < 900; i++) {
+    dy += G * dt;
+    const zp = z;
+    x += dx * dt;
+    y += dy * dt;
+    z += dz * dt;
+    if ((zp > 0) !== (z > 0) && y - BALL_R < NET_TOP - 0.01 && Math.abs(x) <= HW + 0.15)
+      return { x, y: 0.8, blocked: true };
+    if (dy < 0 && y - BALL_R <= TH && Math.abs(x) <= HW && Math.abs(z) <= HL) {
+      y = TH + BALL_R;
+      dy = -dy * REST;
+    }
+    if ((dz > 0 && z >= planeZ) || (dz < 0 && z <= planeZ)) return { x, y, blocked: false };
+    if (y - BALL_R <= 0.001) return { x, y: BALL_R, blocked: true };
+  }
+  return { x, y: 0.8, blocked: true };
+}
+
+function doShot(side, isServe) {
+  const dirZ = side === 'P' ? -1 : 1;
+  const smash = !isServe && bpos.y > 1.32 && (side === 'P' || Math.random() < diff.aggr);
+  let T = isServe ? 0.8 : (side === 'P' ? 0.62 : diff.tShot);
+  T *= Math.max(0.75, 1 - rally * 0.022);
+  if (smash) T *= 0.72;
+  let tx, tz;
+  if (isServe) {
+    tz = dirZ * rnd(0.75, 1.1);
+    tx = rnd(-0.3, 0.3);
+  } else if (side === 'P') {
+    const off = bpos.x - pPad.position.x;
+    tx = clamp(off * 2.2 + pVX * 0.10 + rnd(-0.08, 0.08), -0.66, 0.66);
+    tz = -rnd(0.8, 1.12);
+  } else {
+    const aim = -Math.sign(pPad.position.x || rnd(-1, 1)) * diff.aim * rnd(0.5, 1);
+    tx = clamp(aim + rnd(-0.12, 0.12), -0.62, 0.62);
+    tz = rnd(0.72, 1.15);
+  }
+  let vx, vy, vz;
+  for (let i = 0; i < 12; i++) {
+    vz = (tz - bpos.z) / T;
+    vx = (tx - bpos.x) / T;
+    vy = (TH + 0.02 - bpos.y - 0.5 * G * T * T) / T;
+    const tN = (0 - bpos.z) / vz;
+    if (tN > 0 && tN < T) {
+      const yN = bpos.y + vy * tN + 0.5 * G * tN * tN;
+      if (yN > NET_TOP + 0.05) break;
+    }
+    T += 0.06;
+    if (T > 1.7) break;
+  }
+  bvel.set(vx, vy, vz);
+  lastHitter = side;
+  crossedNet = false;
+  bounces = 0;
+  lastHitTime = matchTime;
+  rally++;
+  UI.rally();
+  UI.speed();
+
+  const pos = { x: bpos.x, y: bpos.y, z: bpos.z };
+  if (smash) {
+    sound.smash(pos);
+    burst(bpos.x, bpos.y, bpos.z, 0xff6600, 20, 2.5);
+    showMsg('СМЕШ!', 'МОЩНЫЙ УДАР', 'w', 600);
+  } else {
+    sound.hit(Math.abs(vz) * 0.3, pos);
+    burst(bpos.x, bpos.y, bpos.z, side === 'P' ? 0xff5566 : 0x39d3e6, 14, 1.6);
+  }
+  if (smash) { fovKick = 7; shake = 0.07; }
+}
+
+function currentServer() {
+  const t = scoreP + scoreA;
+  const idx = (scoreP >= 10 && scoreA >= 10) ? t % 2 : Math.floor(t / 2) % 2;
+  return idx === 0 ? 'P' : 'A';
+}
+
+function resetServe(srv) {
+  server = srv;
+  state = 'serve';
+  lastHitter = null;
+  crossedNet = false;
+  bounces = 0;
+  rally = 0;
+  bvel.set(0, 0, 0);
+  UI.rally();
+  drawBoard();
+  serveTimer = (server === 'A' || MODE === 'attract') ? rnd(0.9, 1.6) : 0;
+  if (MODE === 'game' && server === 'P') showMsg('ВАША ПОДАЧА', 'клик или пробел', 'w', 1600);
+  else if (MODE === 'game') showMsg('ПОДАЁТ СОПЕРНИК', '', 'l', 1100);
+  sound.serve({ x: 0, y: 1.5, z: server === 'P' ? 1.2 : -1.2 });
+  sound.setCrowdIntensity(0);
+}
+
+function getOpponent(player) {
+  return player === 'P' ? 'A' : 'P';
+}
+
+function endPoint(winner, reason) {
+  if (MODE === 'attract') { resetServe(Math.random() < 0.5 ? 'P' : 'A'); return; }
+  state = 'point';
+  pointTimer = 1.7;
+  slowT = 0.5;
+  const pos = { x: 0, y: 1.5, z: 0 };
+  
+  if (winner === 'P') { 
+    scoreP++; 
+    sound.win(pos); 
+    burst(0, 1.5, -1, 0xffb703, 30, 2.5); 
+    showMsg('ОЧКО — ВАШЕ', reason, 'w', 1500);
+  } else { 
+    scoreA++; 
+    sound.lose(pos); 
+    burst(0, 1.5, 1, 0x3ad2e6, 30, 2.5); 
+    showMsg('ОЧКО — СОПЕРНИК', reason, 'l', 1500);
+  }
+  
+  boardPulse = 1;
+  shake = 0.04;
+  drawBoard();
+  flashNext = 0.1;
+  sound.setCrowdIntensity(0);
+}
+
+function checkWin() {
+  if ((scoreP >= 11 || scoreA >= 11) && Math.abs(scoreP - scoreA) >= 2) {
+    state = 'over';
+    const win = scoreP > scoreA;
+    $('endTitle').textContent = win ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ';
+    $('endTitle').style.color = win ? 'var(--orange)' : '#7f93b8';
+    $('endKick').textContent = win ? 'МАТЧ ВЫИГРАН' : 'МАТЧ ПРОИГРАН';
+    $('endScore').innerHTML = `<b>${scoreP}</b><i>:</i><em>${scoreA}</em>`;
+    $('endOv').classList.add('open');
+    const pos = { x: 0, y: 2, z: -1 };
+    if (win) {
+      sound.win(pos);
+      burst(0, 2, -1, 0xffb703, 60, 3);
+      setTimeout(() => sound.win(pos), 300);
+      setTimeout(() => sound.win(pos), 600);
+    } else {
+      sound.lose(pos);
+    }
+    sound.crowdAmbient(false);
+  }
+}
+
+// ========== ИСПРАВЛЕННАЯ ФИЗИКА И ПОДСЧЁТ ОЧКОВ ==========
+function stepBall(dt) {
+  const py = bpos.y, pz = bpos.z;
+  bvel.y += G * dt;
+  bpos.x += bvel.x * dt;
+  bpos.y += bvel.y * dt;
+  bpos.z += bvel.z * dt;
+  
+  // Проверка сетки
+  if ((pz > 0) !== (bpos.z > 0) && Math.abs(bpos.x) <= HW + 0.15) {
+    if (bpos.y - BALL_R < NET_TOP - 0.02 && bpos.y < NET_TOP + 0.06) {
+      if (bpos.y - BALL_R > NET_TOP - 0.055) {
+        // Мяч задел сетку но перелетел - продолжаем игру (в реальном теннисе при розыгрыше игра идёт)
+        // Но для простоты: если задел верх сетки - отскок
+        bvel.z *= 0.55;
+        bvel.y -= 0.7;
+        sound.net({ x: 0, y: NET_TOP, z: 0 });
+        burst(0, NET_TOP, 0, 0xffffff, 6, 0.8);
+      } else {
+        // Мяч ударился в сетку
+        bpos.z = pz;
+        bvel.z *= -0.28;
+        bvel.x *= 0.7;
+        bvel.y *= 0.55;
+        sound.net({ x: 0, y: bpos.y, z: 0 });
+        burst(0, bpos.y, 0, 0xffffff, 8, 0.9);
+        
+        if (state === 'rally' && lastHitter) {
+          // Мяч ударился в сетку - очко противнику ударившего
+          endPoint(getOpponent(lastHitter), 'попадание в сетку');
+          state = 'point';
+          pointTimer = 1.7;
+        }
+      }
+    }
+  }
+  
+  if (!crossedNet && lastHitter && Math.sign(bpos.z || 1) !== Math.sign(lastHitter === 'P' ? 1 : -1)) crossedNet = true;
+  const overTable = Math.abs(bpos.x) <= HW + BALL_R * 0.5 && Math.abs(bpos.z) <= HL + BALL_R * 0.5;
+  
+  // Отскок от стола
+  if (bvel.y < 0 && bpos.y - BALL_R <= TH && py - BALL_R > TH - 0.09 && overTable) {
+    bpos.y = TH + BALL_R;
+    bvel.y = -bvel.y * REST;
+    bvel.x *= 0.97;
+    bvel.z *= 0.97;
+    sound.bounce(Math.abs(bvel.y) * 0.2, { x: bpos.x, y: TH + 0.02, z: bpos.z });
+    burst(bpos.x, TH + 0.02, bpos.z, 0x9fd4ff, 5, 0.7);
+    
+    if (state === 'rally' && lastHitter) {
+      const side = bpos.z > 0 ? 'P' : 'A';
+      
+      if (side === lastHitter && !crossedNet) {
+        // Мяч ударился на своей половине не пересекая сетку - ошибка ударившего
+        endPoint(getOpponent(lastHitter), 'мяч на своей половине');
+        state = 'point';
+        pointTimer = 1.7;
+        return;
+      }
+      
+      if (side !== lastHitter) {
+        bounces++;
+        if (bounces >= 2) {
+          // Двойной отскок на чужой половине - ударивший выиграл
+          endPoint(lastHitter, 'мяч не отбит');
+          state = 'point';
+          pointTimer = 1.7;
+          return;
+        }
+      }
+    }
+    return;
+  }
+  
+  // Мяч упал на пол (или скатился со стола)
+  if (bpos.y - BALL_R <= 0) {
+    bpos.y = BALL_R;
+    bvel.y = -bvel.y * 0.55;
+    bvel.x *= 0.8;
+    bvel.z *= 0.8;
+    sound.bounce(Math.abs(bvel.y) * 0.15, { x: bpos.x, y: BALL_R, z: bpos.z });
+    
+    if (state === 'rally' && lastHitter) {
+      // ★ ИСПРАВЛЕНИЕ: Проверяем касался ли мяч стола
+      if (bounces >= 1) {
+        // Мяч отскочил от стола, но никто не отбил - очко получает последний ударивший
+        endPoint(lastHitter, 'мяч не отбит');
+      } else {
+        // Мяч не касался стола - это аут, очко противнику ударившего
+        endPoint(getOpponent(lastHitter), 'аут — мимо стола');
+      }
+      state = 'point';
+      pointTimer = 1.7;
+    }
+    if (Math.abs(bvel.y) < 0.4) bvel.set(0, 0, 0);
+    return;
+  }
+  
+  // Мяч вылетел далеко за пределы поля
+  if (Math.abs(bpos.x) > 2.0 || Math.abs(bpos.z) > 2.0) {
+    if (state === 'rally' && lastHitter) {
+      // ★ ИСПРАВЛЕНИЕ: Проверяем касался ли мяч стола
+      if (bounces >= 1) {
+        // Мяч был на столе, но его не отбили (улетел) - очко ударившему
+        endPoint(lastHitter, 'мяч не отбит');
+      } else {
+        // Мяч не коснулся стола - аут
+        endPoint(getOpponent(lastHitter), 'аут — мимо стола');
+      }
+      state = 'point';
+      pointTimer = 1.7;
+      bpos.set(0, 1, 2);
+      bvel.set(0, 0, 0);
+    }
+  }
+}
+
+const arrowState = { up: false, down: false, left: false, right: false };
+let paddleTargetX = 0;
+let paddleTargetY = 1.2;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp') { arrowState.up = true; e.preventDefault(); }
+  if (e.key === 'ArrowDown') { arrowState.down = true; e.preventDefault(); }
+  if (e.key === 'ArrowLeft') { arrowState.left = true; e.preventDefault(); }
+  if (e.key === 'ArrowRight') { arrowState.right = true; e.preventDefault(); }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'ArrowUp') { arrowState.up = false; e.preventDefault(); }
+  if (e.key === 'ArrowDown') { arrowState.down = false; e.preventDefault(); }
+  if (e.key === 'ArrowLeft') { arrowState.left = false; e.preventDefault(); }
+  if (e.key === 'ArrowRight') { arrowState.right = false; e.preventDefault(); }
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!arrowState.up && !arrowState.down && !arrowState.left && !arrowState.right) {
+    paddleTargetX = ((e.clientX / window.innerWidth) * 2 - 1) * 1.6;
+    paddleTargetY = 0.72 + (1 - e.clientY / window.innerHeight) * 1.2;
+  }
+});
+
+const touchControls = $('touchControls');
+touchControls.querySelectorAll('button').forEach(btn => {
+  const dir = btn.dataset.dir;
+  const start = (e) => {
+    e.preventDefault();
+    arrowState[dir] = true;
+    btn.style.transform = 'scale(0.88)';
+  };
+  const end = (e) => {
+    e.preventDefault();
+    arrowState[dir] = false;
+    btn.style.transform = 'scale(1)';
+  };
+  btn.addEventListener('touchstart', start, { passive: false });
+  btn.addEventListener('touchend', end, { passive: false });
+  btn.addEventListener('touchcancel', end, { passive: false });
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('mouseup', end);
+  btn.addEventListener('mouseleave', end);
+});
+
+function movePaddlePlayer(dt) {
+  const speed = 3.5 * dt;
+  if (arrowState.left) paddleTargetX -= speed * 0.3;
+  if (arrowState.right) paddleTargetX += speed * 0.3;
+  if (arrowState.up) paddleTargetY += speed * 0.3;
+  if (arrowState.down) paddleTargetY -= speed * 0.3;
+  paddleTargetX = clamp(paddleTargetX, -1.35, 1.35);
+  paddleTargetY = clamp(paddleTargetY, 0.72, 1.92);
+  pPad.position.x += (paddleTargetX - pPad.position.x) * Math.min(1, dt * 14);
+  pPad.position.y += (paddleTargetY - pPad.position.y) * Math.min(1, dt * 14);
+  pVX = (pPad.position.x - (pPad._lastX || pPad.position.x)) / Math.max(dt, 0.001);
+  pPad._lastX = pPad.position.x;
+}
+
+function autoPilot(pad, side, dt, speed, err) {
+  const incoming = state === 'rally' && (side === 'P' ? bvel.z > 0.5 : bvel.z < -0.5);
+  let tx = bpos.x * 0.3, ty = 1.0;
+  if (incoming) {
+    const pr = predictAtPlane(bpos.x, bpos.y, bpos.z, bvel.x, bvel.y, bvel.z, side === 'P' ? PZ : AZ);
+    tx = pr.x + err;
+    ty = clamp(pr.y, 0.75, 1.9);
+  }
+  const mx = speed * dt;
+  const ox = pad.position.x;
+  pad.position.x += clamp(tx - pad.position.x, -mx, mx);
+  pad.position.y += clamp(ty - pad.position.y, -mx * 0.85, mx * 0.85);
+  return (pad.position.x - ox) / Math.max(dt, 1e-4);
+}
+
+function checkHit(side) {
+  if (state !== 'rally' || matchTime - lastHitTime < 0.22) return;
+  if (lastHitter === side && !crossedNet) return;
+  const pad = side === 'P' ? pPad : aPad;
+  const r = side === 'P' ? P_HIT : A_HIT;
+  const dx = bpos.x - pad.position.x;
+  const dy = bpos.y - pad.position.y;
+  if (dx * dx + dy * dy <= r * r) doShot(side, false);
+}
+
+const msgEl = $('msg');
+let msgTO = null;
+function showMsg(t, sub, cls = 'w', dur = 1400) {
+  msgEl.querySelector('h2').textContent = t;
+  msgEl.querySelector('p').textContent = sub;
+  msgEl.className = 'show ' + cls;
+  clearTimeout(msgTO);
+  msgTO = setTimeout(() => { msgEl.className = ''; }, dur);
+}
+
+const UI = {
+  rally: () => { $('rallyN').textContent = rally; },
+  speed: () => { const s = bvel.length(); $('speedN').textContent = s > 0.1 ? Math.round(s * 3.6) : '—'; }
+};
+
+function startMatch() {
+  scoreP = 0;
+  scoreA = 0;
+  MODE = 'game';
+  paused = false;
+  document.body.classList.remove('mode-menu');
+  $('startOv').classList.remove('open');
+  $('endOv').classList.remove('open');
+  $('pauseOv').classList.remove('open');
+  resetServe('P');
+  sound.ensure();
+  sound.crowdAmbient(true);
+  sound.updateListenerPosition(0, 1.6, 2);
+  sound.updateListenerOrientation(0, -0.3, -1, 0, 1, 0);
+}
+
+function toMenu() {
+  MODE = 'attract';
+  document.body.classList.add('mode-menu');
+  $('endOv').classList.remove('open');
+  $('startOv').classList.add('open');
+  scoreP = 0;
+  scoreA = 0;
+  drawBoard();
+  resetServe(Math.random() < 0.5 ? 'P' : 'A');
+  sound.crowdAmbient(false);
+  sound.cleanup();
+}
+
+document.querySelectorAll('.pill').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.pill').forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel');
+    diff = DIFFS[b.dataset.d];
+    sound.ensure();
+    sound.toss({ x: 0, y: 1, z: 0 });
+  });
+});
+
+$('startBtn').onclick = () => { sound.ensure(); startMatch(); };
+$('againBtn').onclick = () => { sound.ensure(); startMatch(); };
+$('menuBtn').onclick = toMenu;
+$('resumeBtn').onclick = () => togglePause(false);
+$('pauseBtn').onclick = () => togglePause();
+$('muteBtn').onclick = () => {
+  sound.ensure();
+  const muted = sound.toggleMute();
+  $('muteBtn').textContent = muted ? '🔇' : '♫';
+};
+
+const copyPhoneBtn = $('copy-phone-btn');
+if (copyPhoneBtn) {
+  copyPhoneBtn.addEventListener('click', () => {
+    const phoneNumber = '8-920-227-56-76';
+    const copyText = (text) => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      } else {
+        return new Promise((resolve, reject) => {
+          const textArea = document.createElement('textarea');
+          textArea.value = text;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-9999px';
+          textArea.style.top = '-9999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try { document.execCommand('copy'); resolve(); } catch (err) { reject(err); }
+          document.body.removeChild(textArea);
+        });
+      }
+    };
+    copyText(phoneNumber).then(() => {
+      copyPhoneBtn.textContent = '✅ Скопировано!';
+      copyPhoneBtn.classList.add('copied');
+      setTimeout(() => {
+        copyPhoneBtn.textContent = '📋 Копировать номер';
+        copyPhoneBtn.classList.remove('copied');
+      }, 2500);
+    }).catch(() => {
+      copyPhoneBtn.textContent = 'Ошибка';
+      setTimeout(() => { copyPhoneBtn.textContent = '📋 Копировать номер'; }, 2000);
+    });
+  });
+}
+
+function togglePause(v) {
+  if (MODE !== 'game' || state === 'over') return;
+  paused = v === undefined ? !paused : v;
+  $('pauseOv').classList.toggle('open', paused);
+  if (paused) sound.crowdAmbient(false);
+  else sound.crowdAmbient(true);
+}
+
+function tryServe() {
+  if (state === 'serve' && server === 'P' && MODE === 'game' && !paused) {
+    state = 'toss';
+    sound.toss({ x: pPad.position.x, y: pPad.position.y, z: pPad.position.z });
+    bvel.set(0, 3.1, -0.4);
+    sound.serve({ x: pPad.position.x, y: pPad.position.y, z: pPad.position.z });
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.key === ' ') {
+    e.preventDefault();
+    if ($('startOv').classList.contains('open')) { sound.ensure(); startMatch(); }
+    else tryServe();
+  }
+  if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
+  if (e.code === 'KeyM') $('muteBtn').click();
+  if (e.code === 'KeyR' && MODE === 'game') startMatch();
+});
+
+document.addEventListener('pointerdown', (e) => {
+  sound.ensure();
+  if (MODE === 'game' && !e.target.closest('button')) tryServe();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && MODE === 'game' && !paused) togglePause(true);
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }, 300);
+});
+
+resetServe(Math.random() < 0.5 ? 'P' : 'A');
+const clock = new THREE.Clock();
+
+function update(dt) {
+  matchTime += dt;
+  
+  sound.updateListenerPosition(camera.position.x, camera.position.y, camera.position.z);
+  const lx = 0 - camera.position.x;
+  const ly = 0.88 - camera.position.y;
+  const lz = -0.5 - camera.position.z;
+  const len = Math.sqrt(lx * lx + ly * ly + lz * lz) || 1;
+  sound.updateListenerOrientation(lx / len, ly / len, lz / len, 0, 1, 0);
+  
+  if (state === 'rally') {
+    const intensity = Math.max(0, (rally - 3) * 0.5);
+    sound.setCrowdIntensity(intensity);
+  }
+  
+  if (state === 'serve') {
+    const pad = server === 'P' ? pPad : aPad;
+    const dir = server === 'P' ? 1 : -1;
+    bpos.set(pad.position.x * 0.65, 1.02 + Math.sin(matchTime * 3) * 0.02, dir * 1.32);
+    bvel.set(0, 0, 0);
+    if (server === 'A' || MODE === 'attract') {
+      serveTimer -= dt;
+      if (serveTimer <= 0) {
+        state = 'toss';
+        sound.toss({ x: pad.position.x, y: pad.position.y, z: pad.position.z });
+        bvel.set(0, 3.1, dir * -0.4);
+        sound.serve({ x: pad.position.x, y: pad.position.y, z: pad.position.z });
+      }
+    }
+  }
+  
+  if (state === 'rally' || state === 'toss' || state === 'point') {
+    for (let i = 0; i < 2; i++) {
+      const before = bpos.z;
+      stepBall(dt / 2);
+      if (state === 'rally') {
+        if (bvel.z > 0 && before < PZ && bpos.z >= PZ) checkHit('P');
+        if (bvel.z < 0 && before > AZ && bpos.z <= AZ) checkHit('A');
+      }
+    }
+  }
+  
+  if (state === 'toss' && bvel.y < 0.5) { doShot(server, true); state = 'rally'; }
+  
+  if (MODE === 'attract') {
+    aVX = autoPilot(aPad, 'A', dt, 3.2, 0.10);
+    pVX = autoPilot(pPad, 'P', dt, 3.2, 0.10);
+  } else {
+    movePaddlePlayer(dt);
+    if (state === 'rally' && bvel.z < -0.5) {
+      if (aErrSeedT !== lastHitTime) {
+        aErrSeedT = lastHitTime;
+        aErrSeed = Math.random() < diff.whiff ? rnd(0.5, 0.7) * (Math.random() < 0.5 ? -1 : 1) : rnd(-diff.err, diff.err);
+      }
+      aVX = autoPilot(aPad, 'A', dt, diff.speed, aErrSeed);
+    } else {
+      aVX = autoPilot(aPad, 'A', dt, diff.speed * 0.6, 0);
+    }
+  }
+  
+  pPad.rotation.y = clamp(pVX * 0.045, -0.35, 0.35);
+  pPad.rotation.x = -0.12;
+  aPad.rotation.y = Math.PI + clamp(aVX * 0.045, -0.35, 0.35);
+  aPad.rotation.x = 0.12;
+  
+  if (state === 'point') {
+    pointTimer -= dt;
+    if (pointTimer <= 0 && MODE === 'game') {
+      checkWin();
+      if (state === 'point') resetServe(currentServer());
+    }
+  }
+  
+  trailPos.copyWithin(0, 3);
+  trailPos[TRAIL_N * 3 - 3] = bpos.x;
+  trailPos[TRAIL_N * 3 - 2] = bpos.y;
+  trailPos[TRAIL_N * 3 - 1] = bpos.z;
+  trailGeo.attributes.position.needsUpdate = true;
+  
+  for (let i = 0; i < P_N; i++) {
+    if (pl[i] > 0) {
+      pl[i] -= dt;
+      const j = i * 3;
+      pv[j + 1] -= 6 * dt;
+      pp[j] += pv[j] * dt;
+      pp[j + 1] += pv[j + 1] * dt;
+      pp[j + 2] += pv[j + 2] * dt;
+      pc[j] *= 0.96;
+      pc[j + 1] *= 0.96;
+      pc[j + 2] *= 0.96;
+      if (pl[i] <= 0) pp[j + 1] = -50;
+    }
+  }
+  partGeo.attributes.position.needsUpdate = true;
+  partGeo.attributes.color.needsUpdate = true;
+  
+  flashNext -= dt;
+  if (flashNext <= 0 && crowdPts.length) {
+    flashNext = rnd(1.4, 4);
+    const i = ((Math.random() * crowdPts.length / 3) | 0) * 3;
+    flashSpr.position.set(crowdPts[i], crowdPts[i + 1], crowdPts[i + 2]);
+    flashSpr.material.opacity = 1;
+  }
+  if (flashSpr.material.opacity > 0)
+    flashSpr.material.opacity = Math.max(0, flashSpr.material.opacity - dt * 5);
+  
+  if (boardPulse > 0) {
+    boardPulse = Math.max(0, boardPulse - dt * 2.2);
+    const s = 1 + Math.sin(boardPulse * Math.PI) * 0.06;
+    boardGroup.scale.set(s, s, s);
+  }
+  
+  fovKick *= Math.pow(0.02, dt);
+  const targetFov = 48 + fovKick;
+  if (Math.abs(camera.fov - targetFov) > 0.05) { camera.fov = targetFov; camera.updateProjectionMatrix(); }
+  shake *= Math.pow(0.01, dt);
+  
+  if (state === 'over') {
+    const a = matchTime * 0.12;
+    camera.position.set(Math.sin(a) * 5.2, 2.4 + Math.sin(matchTime * 0.3) * 0.15, Math.cos(a) * 5.2);
+    camera.lookAt(0, 0.9, 0);
+  } else {
+    camera.position.x += (clamp(bpos.x * 0.24, -0.6, 0.6) - camera.position.x) * Math.min(1, dt * 3);
+    camera.position.y += ((2.05 + bpos.y * 0.05) - camera.position.y) * Math.min(1, dt * 3);
+    camera.position.z = 5.0;
+    camera.position.x += (Math.random() - 0.5) * shake;
+    camera.position.y += (Math.random() - 0.5) * shake;
+    camera.lookAt(clamp(bpos.x * 0.3, -0.5, 0.5), 0.88, -0.5);
+  }
+}
+
+function frame() {
+  requestAnimationFrame(frame);
+  let dt = Math.min(clock.getDelta(), 0.033);
+  if (!paused) {
+    if (slowT > 0) { slowT -= dt; dt *= 0.35; }
+    update(dt);
+  }
+  renderer.render(sceneObj, camera);
+}
+
+frame();
+sound.setVolume(0.6);
+
+setInterval(() => {
+  sound.activeSources.forEach(src => {
+    try {
+      if (!src.buffer) sound.activeSources.delete(src);
+    } catch(e) { sound.activeSources.delete(src); }
+  });
+}, 5000);
+
+} catch(err) {
+  const fatal = $('fatal');
+  if (fatal) {
+    $('fatalText').textContent = 'Ошибка: ' + err.message;
+    fatal.style.display = 'flex';
+  }
+  console.error(err);
+}
+
+document.addEventListener('click', () => {
+  if (sound && sound.ctx && sound.ctx.state === 'suspended') {
+    sound.ctx.resume();
+  }
+}, { once: true });
+
+</script>
+</body>
+</html>
